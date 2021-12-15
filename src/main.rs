@@ -1,32 +1,38 @@
+use clap::{crate_authors, App, Arg};
+use rs_poker::core::{Card, Deck, Hand, Rankable, Suit, Value};
 use std::collections::HashMap;
-use clap::{Arg, App, crate_authors};
-use rs_poker::core::{Card, Hand, Deck, Suit, Value, Rankable};
 
 fn get_cli_args() {
     let matches = App::new("gsheet_writer")
         .version("0.1")
         .author(crate_authors!(""))
         .about("CLI to write to google sheet given ranges and values")
-        .arg(Arg::new("current-hand")
-            .long("ch")
-            .value_name("STRING")
-            .about("Set current hand")
-            .required(true)
-            .takes_value(true))
-        .arg(Arg::new("num-of-players")
-            .short('n')
-            .long("num-of-players")
-            .value_name("STRING")
-            .about("Set number of players")
-            .required(true)
-            .takes_value(true))
-        .arg(Arg::new("flop")
-            .short('f')
-            .long("flop")
-            .value_name("STRING")
-            .about("Set current flop")
-            .required(true)
-            .takes_value(true))
+        .arg(
+            Arg::new("current-hand")
+                .long("ch")
+                .value_name("STRING")
+                .about("Set current hand")
+                .required(true)
+                .takes_value(true),
+        )
+        .arg(
+            Arg::new("num-of-players")
+                .short('n')
+                .long("num-of-players")
+                .value_name("STRING")
+                .about("Set number of players")
+                .required(true)
+                .takes_value(true),
+        )
+        .arg(
+            Arg::new("flop")
+                .short('f')
+                .long("flop")
+                .value_name("STRING")
+                .about("Set current flop")
+                .required(true)
+                .takes_value(true),
+        )
         .get_matches();
 
     let current_hand = matches.value_of("current-hand").unwrap();
@@ -37,7 +43,7 @@ fn get_cli_args() {
     println!("Value for flop: {}", flop);
 }
 
-fn get_unknown_cards(hand: &Hand, community: &Hand) -> Deck{
+fn get_unknown_cards(hand: &Hand, community: &Hand) -> Deck {
     // Initial deck with 52 cards
     let mut deck = Deck::default();
 
@@ -57,31 +63,60 @@ fn get_unknown_cards(hand: &Hand, community: &Hand) -> Deck{
     deck
 }
 
+// Given a hand, count the number of card with the same suit or value
+fn count_suit_and_value_on_hand(
+    hand: &Hand,
+    card_suits: &mut HashMap<Suit, i8>,
+    card_values: &mut HashMap<Value, i8>,
+) -> () {
+    for card in hand.cards() {
+        card_suits.entry(card.suit).or_insert(0);
+        card_suits.insert(card.suit, card_suits[&card.suit] + 1);
 
-fn get_high_card_outs() -> i8{0}
-fn get_one_pair_outs()-> i8{0}
-fn get_two_pairs_outs()-> i8{0}
-fn get_three_of_a_kind_outs()-> i8{0}
-fn get_straight_outs()-> i8{0}
-fn get_flush_outs(deck: &Deck, hand: &Hand, community: &Hand) -> i8{
-    let mut suits = HashMap::new();
+        card_values.entry(card.value).or_insert(0);
+        card_values.insert(card.value, card_values[&card.value] + 1);
+    }
+}
+
+// Count the number of card with the same suit or value from all cards on table
+fn count_suit_and_value_on_table(
+    hand: &Hand,
+    community: &Hand,
+) -> (HashMap<Suit, i8>, HashMap<Value, i8>) {
+    let mut card_suits = HashMap::new();
+    let mut card_values = HashMap::new();
 
     // Going through the cards in the hand to count number of cards based on their suits
-    for card in hand.cards() {
-        suits.entry(&card.suit).or_insert(0);
-        suits.insert(&card.suit, suits[&card.suit] + 1);
-    }
-
+    count_suit_and_value_on_hand(hand, &mut card_suits, &mut card_values);
     // Going through the community card to count number of cards based on their suits
-    for card in community.cards() {
-        suits.entry(&card.suit).or_insert(0);
-        suits.insert(&card.suit, suits[&card.suit] + 1);
-    }
-    println!("{:?}", suits);
+    count_suit_and_value_on_hand(community, &mut card_suits, &mut card_values);
+    (card_suits, card_values)
+}
+
+fn get_high_card_outs() -> i8 {
+    0
+}
+fn get_one_pair_outs() -> i8 {
+    0
+}
+
+fn get_two_pairs_outs() -> i8 {
+    0
+}
+fn get_three_of_a_kind_outs() -> i8 {
+    0
+}
+fn get_straight_outs() -> i8 {
+    0
+}
+
+fn get_flush_outs(deck: &Deck, hand: &Hand, community: &Hand) -> i8 {
+    let (card_suits, _) = count_suit_and_value_on_table(&hand, &community);
+
     let mut num_of_highest_suit_outs: i8 = 0;
     let mut outs: i8;
 
-    for (&suit, &count) in suits.iter() {
+    for (&suit, &count) in card_suits.iter() {
         // When there is more than or equal to 4 community cards, but the count of suits is less then 4, skip the suit
         if community.len() >= 4 && count < 4 {
             continue;
@@ -94,22 +129,27 @@ fn get_flush_outs(deck: &Deck, hand: &Hand, community: &Hand) -> i8{
 
         outs = 0;
         // For the remaining suits, get the number of cards with that suit
-        for card in deck.iter(){
-            if card.suit == *suit {
+        for card in deck.iter() {
+            if card.suit == suit {
                 outs += 1;
             }
         }
-        if outs > num_of_highest_suit_outs{
+        if outs > num_of_highest_suit_outs {
             num_of_highest_suit_outs = outs
         }
     }
 
-    println!("{:?}", num_of_highest_suit_outs);
     num_of_highest_suit_outs
 }
-fn get_full_house_outs()-> i8{0}
-fn get_four_of_a_kind_outs()-> i8{0}
-fn get_straight_flush_outs()-> i8{0}
+fn get_full_house_outs() -> i8 {
+    0
+}
+fn get_four_of_a_kind_outs() -> i8 {
+    0
+}
+fn get_straight_flush_outs() -> i8 {
+    0
+}
 
 enum HandRank {
     /// The lowest rank.
@@ -134,8 +174,8 @@ enum HandRank {
 }
 
 impl HandRank {
-    pub fn calc_4_and_2_probs(){}
-    pub fn calc_outs(self, deck: &Deck, hand: &Hand, community: &Hand) -> i8{
+    pub fn calc_4_and_2_probs() {}
+    pub fn calc_outs(self, deck: &Deck, hand: &Hand, community: &Hand) -> i8 {
         match self {
             Self::HighCard => get_high_card_outs(),
             Self::OnePair => get_one_pair_outs(),
@@ -145,7 +185,7 @@ impl HandRank {
             Self::Flush => get_flush_outs(deck, hand, community),
             Self::FullHouse => get_full_house_outs(),
             Self::FourOfAKind => get_four_of_a_kind_outs(),
-            Self::StraightFlush => get_straight_flush_outs()
+            Self::StraightFlush => get_straight_flush_outs(),
         }
     }
 }
@@ -167,7 +207,7 @@ fn main() {
     let flush_outs = HandRank::Flush;
     flush_outs.calc_outs(&deck, &hand, &community);
 
-    println!("{:?}", deck.len());
+    // println!("{:?}", deck.len());
     // println!("{:?}", deck);
     // let some_card: Card = Card { value: (Value::King), suit: (Suit::Heart) };
     // println!("{:?}", deck.contains(some_card));
@@ -193,6 +233,25 @@ mod tests {
         let hand = Hand::new_from_str("Adkh").unwrap();
         let community = Hand::new_from_str("Jd8c3d4s").unwrap();
         assert_ne!(get_unknown_cards(&hand, &community).len(), 47);
+    }
+
+    // Testing if we have the correct number of count of suits and values on a hand
+    #[test]
+    fn test_count_suit_and_value_on_hand() {
+        let mut card_suits = HashMap::new();
+        let mut card_values = HashMap::new();
+        let hand = Hand::new_from_str("Adkh").unwrap();
+        let community = Hand::new_from_str("Jd8c3d").unwrap();
+        count_suit_and_value_on_hand(&hand, &mut card_suits, &mut card_values);
+        count_suit_and_value_on_hand(&community, &mut card_suits, &mut card_values);
+        assert_eq!(card_suits[&Suit::Diamond], 3);
+        assert_eq!(card_suits[&Suit::Heart], 1);
+        assert_eq!(card_suits[&Suit::Club], 1);
+        assert_eq!(card_values[&Value::Three], 1);
+        assert_eq!(card_values[&Value::Eight], 1);
+        assert_eq!(card_values[&Value::Ace], 1);
+        assert_eq!(card_values[&Value::Jack], 1);
+        assert_eq!(card_values[&Value::King], 1);
     }
 
     // Testing when we have 4 community cards already, but number of cards of same suits is less than 4
@@ -222,7 +281,7 @@ mod tests {
         assert_eq!(get_flush_outs(&deck, &hand, &community), 10);
     }
 
-    // In this case, we have 4 diamond suited cards out of 13 diamond suited cards, the correct number should be 10
+    // In this case, we have 4 diamond suited cards out of 13 diamond suited cards, the correct number should be 9
     #[test]
     fn test_correct_flush_outs_2() {
         let hand = Hand::new_from_str("Adkh").unwrap();
