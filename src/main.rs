@@ -1,4 +1,5 @@
 use clap::{crate_authors, App, Arg};
+use core::num;
 use rs_poker::core::{Card, Deck, Hand, Rankable, Suit, Value};
 use std::collections::HashMap;
 
@@ -43,6 +44,7 @@ fn get_cli_args() {
     println!("Value for flop: {}", flop);
 }
 
+// Function to remove cards in hand and community from a brand new deck
 fn get_unknown_cards(hand: &Hand, community: &Hand) -> Deck {
     // Initial deck with 52 cards
     let mut deck = Deck::default();
@@ -96,13 +98,55 @@ fn count_suit_and_value_on_table(
 fn get_high_card_outs() -> i8 {
     0
 }
-fn get_one_pair_outs() -> i8 {
-    0
+
+fn get_one_pair_outs(hand: &Hand, community: &Hand) -> i8 {
+    let (_, card_values) = count_suit_and_value_on_table(&hand, &community);
+
+    for (_, &count) in card_values.iter() {
+        // If count of values of cards on table == 2, that means we already a pair, return outs = 0, no calculation needed
+        if count == 2 {
+            return 0;
+        }
+    }
+    // There are four suits for each card, so 3 outs for each card
+    3
 }
 
-fn get_two_pairs_outs() -> i8 {
-    0
+fn get_two_pairs_outs(hand: &Hand, community: &Hand) -> i8 {
+    let (_, card_values) = count_suit_and_value_on_table(&hand, &community);
+    let mut one_pair_found = false;
+    let mut second_pair_found = false;
+
+    for (_, &count) in card_values.iter() {
+        // If count of values of cards on table == 4, that means we already two pairs, return outs = 0, no calculation needed
+        if count == 4 {
+            return 0;
+        }
+
+        // If we already have a pair, we just have to get another pair, 3 outs for each card left
+        if count == 2 {
+            if one_pair_found == false {
+                one_pair_found = true;
+                continue;
+            }
+            if one_pair_found {
+                second_pair_found = true;
+                continue;
+            }
+        }
+    }
+
+    if one_pair_found && second_pair_found {
+        return 0;
+    }
+
+    if one_pair_found {
+        return 3;
+    }
+    // 3 outs for each card, need two cards for a pair
+    hand.len() as i8 * 3
 }
+
 fn get_three_of_a_kind_outs() -> i8 {
     0
 }
@@ -113,7 +157,7 @@ fn get_straight_outs() -> i8 {
 fn get_flush_outs(deck: &Deck, hand: &Hand, community: &Hand) -> i8 {
     let (card_suits, _) = count_suit_and_value_on_table(&hand, &community);
 
-    let mut num_of_highest_suit_outs: i8 = 0;
+    let mut num_of_highest_suit_outs: i8 = -1;
     let mut outs: i8;
 
     for (&suit, &count) in card_suits.iter() {
@@ -178,8 +222,8 @@ impl HandRank {
     pub fn calc_outs(self, deck: &Deck, hand: &Hand, community: &Hand) -> i8 {
         match self {
             Self::HighCard => get_high_card_outs(),
-            Self::OnePair => get_one_pair_outs(),
-            Self::TwoPair => get_two_pairs_outs(),
+            Self::OnePair => get_one_pair_outs(hand, community),
+            Self::TwoPair => get_two_pairs_outs(hand, community),
             Self::ThreeOfAKind => get_three_of_a_kind_outs(),
             Self::Straight => get_straight_outs(),
             Self::Flush => get_flush_outs(deck, hand, community),
@@ -201,11 +245,12 @@ fn main() {
     // println!("{:?}", board);
 
     let hand = Hand::new_from_str("Adkh").expect("Should be able to create a hand.");
-    let community = Hand::new_from_str("Jd8c3d").expect("Should be able to create a hand.");
+    let community = Hand::new_from_str("AsKd2s").expect("Should be able to create a hand.");
 
     let deck: Deck = get_unknown_cards(&hand, &community);
     let flush_outs = HandRank::Flush;
     flush_outs.calc_outs(&deck, &hand, &community);
+    println!("{:?}", get_two_pairs_outs(&hand, &community))
 
     // println!("{:?}", deck.len());
     // println!("{:?}", deck);
@@ -254,13 +299,99 @@ mod tests {
         assert_eq!(card_values[&Value::King], 1);
     }
 
+    // Testing when we have at least one pair, outs should 0, pair at the top
+    #[test]
+    fn test_existing_one_pair_1() {
+        let hand = Hand::new_from_str("Adkh").unwrap();
+        let community = Hand::new_from_str("Ah8c3s4s").unwrap();
+        assert_eq!(get_one_pair_outs(&hand, &community), 0);
+    }
+
+    #[test]
+    fn test_existing_one_pair_2() {
+        let hand = Hand::new_from_str("Adkh").unwrap();
+        let community = Hand::new_from_str("2h8cks4s").unwrap();
+        assert_eq!(get_one_pair_outs(&hand, &community), 0);
+    }
+
+    // Testing when we have at least one pair, outs should 0, pair at the middle
+    #[test]
+    fn test_one_pair_outs_2() {
+        let hand = Hand::new_from_str("Adkh").unwrap();
+        let community = Hand::new_from_str("7h8cks4s").unwrap();
+        assert_eq!(get_one_pair_outs(&hand, &community), 0);
+    }
+
+    // Testing when we have at least one pair, outs should 0, pair at the bottom
+    #[test]
+    fn test_one_pair_outs_3() {
+        let hand = Hand::new_from_str("Adkh").unwrap();
+        let community = Hand::new_from_str("7h8cks").unwrap();
+        assert_eq!(get_one_pair_outs(&hand, &community), 0);
+    }
+
+    // Testing when we have at least one pair, outs should 0, pair at the bottom
+    #[test]
+    fn test_one_pair_outs_4() {
+        let hand = Hand::new_from_str("Adkh").unwrap();
+        let community = Hand::new_from_str("7h8cAs").unwrap();
+        assert_eq!(get_one_pair_outs(&hand, &community), 0);
+    }
+
+    // Testing when we have no pair
+    #[test]
+    fn test_one_pair_outs_5() {
+        let hand = Hand::new_from_str("Adkh").unwrap();
+        let community = Hand::new_from_str("7h8c2s").unwrap();
+        assert_eq!(get_one_pair_outs(&hand, &community), 3);
+    }
+
+    // Testing when we have two pairs already
+    #[test]
+    fn test_existing_two_pairs_1() {
+        let hand = Hand::new_from_str("Adkh").unwrap();
+        let community = Hand::new_from_str("AsKd2s").unwrap();
+        assert_eq!(get_two_pairs_outs(&hand, &community), 0);
+    }
+
+    #[test]
+    fn test_existing_two_pairs_2() {
+        let hand = Hand::new_from_str("Adkh").unwrap();
+        let community = Hand::new_from_str("As4cKd2s").unwrap();
+        assert_eq!(get_two_pairs_outs(&hand, &community), 0);
+    }
+
+    // Test when we already have one pair
+    #[test]
+    fn test_one_in_two_pairs_1() {
+        let hand = Hand::new_from_str("Adkh").unwrap();
+        let community = Hand::new_from_str("As4c5d2s").unwrap();
+        assert_eq!(get_two_pairs_outs(&hand, &community), 3);
+    }
+
+    // Test when we already have one pair
+    #[test]
+    fn test_one_in_two_pairs_2() {
+        let hand = Hand::new_from_str("Adkh").unwrap();
+        let community = Hand::new_from_str("3skd4c").unwrap();
+        assert_eq!(get_two_pairs_outs(&hand, &community), 3);
+    }
+
+    // Test when we have no pair
+    #[test]
+    fn test_two_pairs_outs_1() {
+        let hand = Hand::new_from_str("Adkh").unwrap();
+        let community = Hand::new_from_str("3s4cqd2s").unwrap();
+        assert_eq!(get_two_pairs_outs(&hand, &community), 6);
+    }
+
     // Testing when we have 4 community cards already, but number of cards of same suits is less than 4
     #[test]
     fn test_impossible_flush_outs_1() {
         let hand = Hand::new_from_str("Adkh").unwrap();
         let community = Hand::new_from_str("Jd8c3s4s").unwrap();
         let deck: Deck = get_unknown_cards(&hand, &community);
-        assert_eq!(get_flush_outs(&deck, &hand, &community), 0);
+        assert_eq!(get_flush_outs(&deck, &hand, &community), -1);
     }
 
     // Testing when we have the flops (3 community cards), but number of cards of same suits is less than 3
@@ -269,7 +400,7 @@ mod tests {
         let hand = Hand::new_from_str("Adkh").unwrap();
         let community = Hand::new_from_str("Jd8c3s").unwrap();
         let deck: Deck = get_unknown_cards(&hand, &community);
-        assert_eq!(get_flush_outs(&deck, &hand, &community), 0);
+        assert_eq!(get_flush_outs(&deck, &hand, &community), -1);
     }
 
     // In this case, we have 3 diamond suited cards out of 13 diamond suited cards, the correct number should be 10
