@@ -95,10 +95,6 @@ fn count_suit_and_value_on_table(
     (card_suits, card_values)
 }
 
-fn get_high_card_outs() -> i8 {
-    0
-}
-
 fn get_one_pair_outs(hand: &Hand, community: &Hand) -> i8 {
     let (_, card_values) = count_suit_and_value_on_table(&hand, &community);
 
@@ -118,7 +114,7 @@ fn get_two_pairs_outs(hand: &Hand, community: &Hand) -> i8 {
     let mut second_pair_found = false;
 
     for (_, &count) in card_values.iter() {
-        // If count of values of cards on table == 4, that means we already two pairs, return outs = 0, no calculation needed
+        // If count of values of cards on table == 4, that means we already have two pairs, return outs = 0, no calculation needed
         if count == 4 {
             return 0;
         }
@@ -147,11 +143,56 @@ fn get_two_pairs_outs(hand: &Hand, community: &Hand) -> i8 {
     hand.len() as i8 * 3
 }
 
-fn get_three_of_a_kind_outs() -> i8 {
-    0
+fn get_three_of_a_kind_outs(hand: &Hand, community: &Hand) -> i8 {
+    let (_, card_values) = count_suit_and_value_on_table(&hand, &community);
+
+    for (_, &count) in card_values.iter() {
+        // If count of values of cards on table == 3, that means we already have a set, return outs = 0, no calculation needed
+        if count >= 3 {
+            return 0;
+        }
+
+        // If we already have a pair, we just need one more card, 2 outs
+        if count == 2 {
+            return 2;
+        }
+    }
+    // If we have no pair in current hand, then we need at least two more cards
+    3
 }
-fn get_straight_outs() -> i8 {
-    0
+
+fn get_straight_outs(hand: &Hand, community: &Hand) -> i8 {
+    let (_, card_values) = count_suit_and_value_on_table(&hand, &community);
+    let mut value_vector = Vec::new();
+
+    for (&value, _) in card_values.iter() {
+        value_vector.push(value as i8);
+    }
+
+    value_vector.sort();
+    let mut num_in_sequence = 1;
+
+    for (i, each_value) in value_vector.iter().enumerate() {
+        if i == 0 {
+            continue;
+        }
+        if each_value - 1 == value_vector[i - 1] {
+            num_in_sequence += 1
+        }
+    }
+
+    // If there are 3 community cards and the num of consecutive card is not 3, then there is no chance for straight
+    if community.len() as i8 == 3 && num_in_sequence < 3 {
+        return -1;
+    }
+
+    // If there are 3 community cards and the num of consecutive card is not 3, then there is no chance for straight
+    if community.len() as i8 == 4 && num_in_sequence < 4 {
+        return -1;
+    }
+
+    // We only need 5 cards to have straight, but from 4 suits
+    (5 - num_in_sequence) * 4
 }
 
 fn get_flush_outs(deck: &Deck, hand: &Hand, community: &Hand) -> i8 {
@@ -188,17 +229,12 @@ fn get_flush_outs(deck: &Deck, hand: &Hand, community: &Hand) -> i8 {
 fn get_full_house_outs() -> i8 {
     0
 }
-fn get_four_of_a_kind_outs() -> i8 {
-    0
-}
+
 fn get_straight_flush_outs() -> i8 {
     0
 }
 
 enum HandRank {
-    /// The lowest rank.
-    /// No matches
-    HighCard,
     /// One Card matches another.
     OnePair,
     /// Two different pair of matching cards.
@@ -211,8 +247,6 @@ enum HandRank {
     Flush,
     /// Three of one value and two of another value
     FullHouse,
-    /// Four of the same value.
-    FourOfAKind,
     /// Five cards in a sequence all for the same suit.
     StraightFlush,
 }
@@ -221,14 +255,12 @@ impl HandRank {
     pub fn calc_4_and_2_probs() {}
     pub fn calc_outs(self, deck: &Deck, hand: &Hand, community: &Hand) -> i8 {
         match self {
-            Self::HighCard => get_high_card_outs(),
             Self::OnePair => get_one_pair_outs(hand, community),
             Self::TwoPair => get_two_pairs_outs(hand, community),
-            Self::ThreeOfAKind => get_three_of_a_kind_outs(),
-            Self::Straight => get_straight_outs(),
+            Self::ThreeOfAKind => get_three_of_a_kind_outs(hand, community),
+            Self::Straight => get_straight_outs(hand, community),
             Self::Flush => get_flush_outs(deck, hand, community),
             Self::FullHouse => get_full_house_outs(),
-            Self::FourOfAKind => get_four_of_a_kind_outs(),
             Self::StraightFlush => get_straight_flush_outs(),
         }
     }
@@ -244,18 +276,19 @@ fn main() {
     // println!("{:?}", hand.cards());
     // println!("{:?}", board);
 
-    let hand = Hand::new_from_str("Adkh").expect("Should be able to create a hand.");
-    let community = Hand::new_from_str("AsKd2s").expect("Should be able to create a hand.");
+    let hand = Hand::new_from_str("7d3s").expect("Should be able to create a hand.");
+    let community = Hand::new_from_str("Jd2s4s").expect("Should be able to create a hand.");
 
-    let deck: Deck = get_unknown_cards(&hand, &community);
-    let flush_outs = HandRank::Flush;
-    flush_outs.calc_outs(&deck, &hand, &community);
-    println!("{:?}", get_two_pairs_outs(&hand, &community))
+    // let deck: Deck = get_unknown_cards(&hand, &community);
+    // let flush_outs = HandRank::Flush;
+    // flush_outs.calc_outs(&deck, &hand, &community);
+    // println!("{:?}", get_three_of_a_kind_outs(&hand, &community));
+    get_straight_outs(&hand, &community);
 
     // println!("{:?}", deck.len());
     // println!("{:?}", deck);
     // let some_card: Card = Card { value: (Value::King), suit: (Suit::Heart) };
-    // println!("{:?}", deck.contains(some_card));
+    // println!("{:?}", some_card.value as i8);
 
     // for each_card in deck.iter(){
     //     println!("{:?}",each_card)
@@ -385,6 +418,66 @@ mod tests {
         assert_eq!(get_two_pairs_outs(&hand, &community), 6);
     }
 
+    // Test when we have already have three of a kind
+    #[test]
+    fn test_existing_three_of_a_kind_1() {
+        let hand = Hand::new_from_str("Adkh").unwrap();
+        let community = Hand::new_from_str("As4cqdAc").unwrap();
+        assert_eq!(get_three_of_a_kind_outs(&hand, &community), 0);
+    }
+
+    // Test when we have already have three of a kind
+    #[test]
+    fn test_existing_three_of_a_kind_2() {
+        let hand = Hand::new_from_str("AdAh").unwrap();
+        let community = Hand::new_from_str("As4cqdAc").unwrap();
+        assert_eq!(get_three_of_a_kind_outs(&hand, &community), 0);
+    }
+
+    // Test when we have already have a pair
+    #[test]
+    fn test_three_of_a_kind_outs_1() {
+        let hand = Hand::new_from_str("AdAh").unwrap();
+        let community = Hand::new_from_str("2s4cqd4h").unwrap();
+        assert_eq!(get_three_of_a_kind_outs(&hand, &community), 2);
+    }
+
+    // Testing when we have no chance of having straight
+    #[test]
+    fn test_impossible_straight_1() {
+        let hand = Hand::new_from_str("7dkh").unwrap();
+        let community = Hand::new_from_str("Jd2c3s").unwrap();
+        assert_eq!(get_straight_outs(&hand, &community), -1);
+    }
+
+    #[test]
+    fn test_impossible_straight_2() {
+        let hand = Hand::new_from_str("7dkh").unwrap();
+        let community = Hand::new_from_str("Jd2c3s4s").unwrap();
+        assert_eq!(get_straight_outs(&hand, &community), -1);
+    }
+
+    #[test]
+    fn test_straight_outs_1() {
+        let hand = Hand::new_from_str("7d3s").unwrap();
+        let community = Hand::new_from_str("Jd2s4s5d").unwrap();
+        assert_eq!(get_straight_outs(&hand, &community), 4);
+    }
+
+    #[test]
+    fn test_straight_outs_2() {
+        let hand = Hand::new_from_str("7d3s").unwrap();
+        let community = Hand::new_from_str("Jd2s4s").unwrap();
+        assert_eq!(get_straight_outs(&hand, &community), 8);
+    }
+
+    #[test]
+    fn test_straight_outs_3() {
+        let hand = Hand::new_from_str("7d3s").unwrap();
+        let community = Hand::new_from_str("3d2h4s").unwrap();
+        assert_eq!(get_straight_outs(&hand, &community), 8);
+    }
+
     // Testing when we have 4 community cards already, but number of cards of same suits is less than 4
     #[test]
     fn test_impossible_flush_outs_1() {
@@ -417,6 +510,24 @@ mod tests {
     fn test_correct_flush_outs_2() {
         let hand = Hand::new_from_str("Adkh").unwrap();
         let community = Hand::new_from_str("Jd8d3d").unwrap();
+        let deck: Deck = get_unknown_cards(&hand, &community);
+        assert_eq!(get_flush_outs(&deck, &hand, &community), 9);
+    }
+
+    // In this case, we have two card with the same value in hand
+    #[test]
+    fn test_correct_flush_outs_3() {
+        let hand = Hand::new_from_str("AdAh").unwrap();
+        let community = Hand::new_from_str("Jd8d3d").unwrap();
+        let deck: Deck = get_unknown_cards(&hand, &community);
+        assert_eq!(get_flush_outs(&deck, &hand, &community), 9);
+    }
+
+    // In this case, we have two card with the same value
+    #[test]
+    fn test_correct_flush_outs_4() {
+        let hand = Hand::new_from_str("Ad3d").unwrap();
+        let community = Hand::new_from_str("Jd8dAh").unwrap();
         let deck: Deck = get_unknown_cards(&hand, &community);
         assert_eq!(get_flush_outs(&deck, &hand, &community), 9);
     }
