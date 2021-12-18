@@ -114,12 +114,12 @@ fn get_two_pairs_outs(hand: &Hand, community: &Hand) -> i8 {
     let mut second_pair_found = false;
 
     for (_, &count) in card_values.iter() {
-        // If count of values of cards on table == 4, that means we already have two pairs, return outs = 0, no calculation needed
+        // If count of values of cards on table == 4 (full suits of a card value), that means we already have two pairs, return outs = 0, no calculation needed
         if count == 4 {
             return 0;
         }
 
-        // If we already have a pair, we just have to get another pair, 3 outs for each card left
+        // When there is a pair already
         if count == 2 {
             if one_pair_found == false {
                 one_pair_found = true;
@@ -136,6 +136,7 @@ fn get_two_pairs_outs(hand: &Hand, community: &Hand) -> i8 {
         return 0;
     }
 
+    // If we already have a pair, we just have to get another pair, 3 outs for each card left
     if one_pair_found {
         return 3;
     }
@@ -226,12 +227,56 @@ fn get_flush_outs(deck: &Deck, hand: &Hand, community: &Hand) -> i8 {
 
     num_of_highest_suit_outs
 }
-fn get_full_house_outs() -> i8 {
-    0
-}
 
-fn get_straight_flush_outs() -> i8 {
-    0
+
+fn get_full_house_outs(hand: &Hand, community: &Hand) -> i8 {
+    let (_, card_values) = count_suit_and_value_on_table(&hand, &community);
+    let mut one_pair_found = false;
+    let mut second_pair_found = false;
+    let mut set_found = false;
+
+    for (_, &count) in card_values.iter() {
+        // If count of values of cards on table == 4 (full suits of a card value), that means we already have two pairs, only need 1 more card (2 outs) for full house
+        if count == 4 {
+            return 2 * 2;
+        }
+
+        // If we already one pair
+        if count == 2 {
+            if set_found {
+                return 0;
+            }
+            if one_pair_found == false {
+                one_pair_found = true;
+                continue;
+            }
+            if one_pair_found {
+                second_pair_found = true;
+                continue;
+            }
+        }
+
+        if count == 3 {
+            if one_pair_found {
+                return 0;
+            }
+            set_found = true;
+        }
+    }
+
+    if one_pair_found && second_pair_found {
+        return 2 * 2;
+    }
+
+    // If we already have a pair, we have to get both another pair + 1 other card of the same value with the pair we have or 3 other cards of the same value
+    if one_pair_found {
+        // Two possibilities but we go with the one with higher outs:
+        // 3 outs for a set
+        // 3 outs for a pair + 2 outs for 1 other card
+        return 2 + 3;
+    }
+    // If none found
+    3 + 3
 }
 
 enum HandRank {
@@ -247,8 +292,6 @@ enum HandRank {
     Flush,
     /// Three of one value and two of another value
     FullHouse,
-    /// Five cards in a sequence all for the same suit.
-    StraightFlush,
 }
 
 impl HandRank {
@@ -260,8 +303,7 @@ impl HandRank {
             Self::ThreeOfAKind => get_three_of_a_kind_outs(hand, community),
             Self::Straight => get_straight_outs(hand, community),
             Self::Flush => get_flush_outs(deck, hand, community),
-            Self::FullHouse => get_full_house_outs(),
-            Self::StraightFlush => get_straight_flush_outs(),
+            Self::FullHouse => get_full_house_outs(hand, community)
         }
     }
 }
@@ -276,14 +318,14 @@ fn main() {
     // println!("{:?}", hand.cards());
     // println!("{:?}", board);
 
-    let hand = Hand::new_from_str("7d3s").expect("Should be able to create a hand.");
-    let community = Hand::new_from_str("Jd2s4s").expect("Should be able to create a hand.");
+    let hand = Hand::new_from_str("AdAh").expect("Should be able to create a hand.");
+    let community = Hand::new_from_str("3s3h4h3c").expect("Should be able to create a hand.");
 
     // let deck: Deck = get_unknown_cards(&hand, &community);
     // let flush_outs = HandRank::Flush;
     // flush_outs.calc_outs(&deck, &hand, &community);
     // println!("{:?}", get_three_of_a_kind_outs(&hand, &community));
-    get_straight_outs(&hand, &community);
+    println!("{:?}", get_full_house_outs(&hand, &community));
 
     // println!("{:?}", deck.len());
     // println!("{:?}", deck);
@@ -530,5 +572,60 @@ mod tests {
         let community = Hand::new_from_str("Jd8dAh").unwrap();
         let deck: Deck = get_unknown_cards(&hand, &community);
         assert_eq!(get_flush_outs(&deck, &hand, &community), 9);
+    }
+
+    // In this case, we have a pair and a set already
+    #[test]
+    fn test_existing_full_house_1() {
+        let hand = Hand::new_from_str("Ad3d").unwrap();
+        let community = Hand::new_from_str("3s3hAh").unwrap();
+        assert_eq!(get_full_house_outs(&hand, &community), 0);
+    }
+
+    #[test]
+    fn test_existing_full_house_2() {
+        let hand = Hand::new_from_str("AdAh").unwrap();
+        let community = Hand::new_from_str("3s3h4h3c").unwrap();
+        assert_eq!(get_full_house_outs(&hand, &community), 0);
+    }
+
+    // When there are two pairs already
+    #[test]
+    fn test_full_house_outs_1() {
+        let hand = Hand::new_from_str("AdAh").unwrap();
+        let community = Hand::new_from_str("4h3c3h").unwrap();
+        assert_eq!(get_full_house_outs(&hand, &community), 4);
+    }
+
+    // When there are two pairs already
+    #[test]
+    fn test_full_house_outs_2() {
+        let hand = Hand::new_from_str("Ad3h").unwrap();
+        let community = Hand::new_from_str("4h3c5cAh").unwrap();
+        assert_eq!(get_full_house_outs(&hand, &community), 4);
+    }
+
+    // When there is one pair already
+    #[test]
+    fn test_full_house_outs_3() {
+        let hand = Hand::new_from_str("Ad3h").unwrap();
+        let community = Hand::new_from_str("4h3c5c6h").unwrap();
+        assert_eq!(get_full_house_outs(&hand, &community), 5);
+    }
+
+    // When there is one pair already
+    #[test]
+    fn test_full_house_outs_4() {
+        let hand = Hand::new_from_str("4sAd").unwrap();
+        let community = Hand::new_from_str("4h3c5c").unwrap();
+        assert_eq!(get_full_house_outs(&hand, &community), 5);
+    }
+
+    // When there is nothing
+    #[test]
+    fn test_full_house_outs_5() {
+        let hand = Hand::new_from_str("4sAd").unwrap();
+        let community = Hand::new_from_str("6h3c5c").unwrap();
+        assert_eq!(get_full_house_outs(&hand, &community), 6);
     }
 }
