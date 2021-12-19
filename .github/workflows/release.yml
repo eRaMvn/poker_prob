@@ -13,13 +13,13 @@ jobs:
       matrix:
         include:
           - os: ubuntu-latest
-            artifact_name: poker-prob
+            artifact_name: poker_prob
             asset_name: poker-prob-linux-amd64
           - os: windows-latest
-            artifact_name: poker-prob.exe
+            artifact_name: poker_prob.exe
             asset_name: poker-prob-windows-amd64
           - os: macos-latest
-            artifact_name: poker-prob
+            artifact_name: poker_prob
             asset_name: poker-prob-macos-amd64
 
     steps:
