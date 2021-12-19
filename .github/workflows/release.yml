@@ -30,7 +30,7 @@ jobs:
         id: tag_version
         uses: mathieudutour/github-tag-action@v6.0
         with:
-          github_token: ${{ secrets.RELEASE_TOKE }}
+          github_token: ${{ secrets.RELEASE_TOKEN }}
         id: bump_version
       - name: Upload binaries to release
         uses: svenstaro/upload-release-action@v2
