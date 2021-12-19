@@ -1,4 +1,4 @@
-use clap::{crate_authors, App, Arg};
+use clap::{App, Arg};
 use colored::*;
 use rs_poker::core::{Deck, Hand};
 use std::collections::HashMap;
@@ -7,13 +7,13 @@ mod calc_prob;
 fn get_cli_args() -> (String, String, bool) {
     let matches = App::new("gsheet_writer")
         .version("0.1")
-        .author(crate_authors!(""))
+        .author("eRaMvn")
         .about("CLI to write to google sheet given ranges and values")
         .arg(
             Arg::new("my-hand")
                 .long("mh")
                 .value_name("STRING")
-                .about("Set my hand")
+                .help("Set my hand")
                 .required(true)
                 .takes_value(true),
         )
@@ -21,14 +21,14 @@ fn get_cli_args() -> (String, String, bool) {
             Arg::new("community-cards")
                 .long("ch")
                 .value_name("STRING")
-                .about("Set community cards")
+                .help("Set community cards")
                 .required(true)
                 .takes_value(true),
         )
         .arg(
             Arg::new("all-in")
                 .short('a')
-                .about("Set whether this is all in or not")
+                .help("Set whether this is all in or not")
                 .takes_value(false),
         )
         .get_matches();
