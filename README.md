@@ -4,7 +4,26 @@ Program to calculate the probabilities of winning hands in rust based on rule of
 
 ## Sample commands
 
-poker_prob.exe --ch Ad3h --mh 4h3c5c6h -a
+### Help command
+
+`poker_prob.exe -h`
+
+Output:
+
+```/bin/bash
+    poker_prob.exe [OPTIONS] --mh <STRING> --ch <STRING>
+
+OPTIONS:
+    -a                   Set whether this is all in or not
+        --ch <STRING>    Set community cards
+    -h, --help           Print help information
+        --mh <STRING>    Set my hand
+    -V, --version        Print version information
+```
+
+### Calculate probabilities
+
+`poker_prob.exe --ch Ad3h --mh 4h3c5c6h -a`
 
 Output:
 
